@@ -21,6 +21,8 @@ nav:
     - Sensors: sensors.md
     - Producer: producer.md
   - Infrastructure: infrastructure.md
+  - Issues: issues.md
+  - Performance: performance.md
 
 docs_dir: documentation
 site_dir: site
