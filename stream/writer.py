@@ -24,7 +24,7 @@ class ClickHouseWriter:
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
         self.buffer = []
-        self.lock = threading.Lock()
+        self.lock = threading.RLock() # Re-entrant lock to prevent deadlocks
         self.last_flush_time = time.time()
         
         self.client = None
@@ -83,7 +83,7 @@ class ClickHouseWriter:
         with self.lock:
             self.buffer.append(row)
             if len(self.buffer) >= self.buffer_size:
-                logger.debug(f"Buffer size {len(self.buffer)} reached. Flushing...")
+                logger.info(f"Buffer size {len(self.buffer)} reached. Flushing...")
                 self.flush()
 
     def flush(self):
@@ -102,8 +102,6 @@ class ClickHouseWriter:
             self.last_flush_time = time.time()
 
         try:
-            # Map dictionaries to list of tuples for clickhouse-connect
-            # Assumes rows are already flattened and coerced by transforms.py
             fields = [
                 'timestamp', 'vehicle_id', 'rpm', 'speed', 'throttle_position', 
                 'coolant_temp', 'battery_voltage', 'maf', 'fuel_level', 
@@ -126,7 +124,6 @@ class ClickHouseWriter:
             time.sleep(1)
             if time.time() - self.last_flush_time >= self.flush_interval:
                 if self.buffer:
-                    logger.debug("Flush interval reached. Flushing...")
                     self.flush()
 
     def close(self):
