@@ -6,8 +6,9 @@ services:
       - "8124:8123" # Host 8124 maps to container 8123
       - "9001:9000" # Host 9001 maps to container 9000
     environment:
-      - CLICKHOUSE_USER=admin
-      - CLICKHOUSE_PASSWORD=password
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-admin}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-password}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DATABASE:-default}
     volumes:
       - ./data/clickhouse:/var/lib/clickhouse:Z
     ulimits:
