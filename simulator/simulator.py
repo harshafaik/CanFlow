@@ -1,10 +1,15 @@
+import os
 import time
 import random
 import json
 import logging
 from datetime import datetime
+from dotenv import load_dotenv
 from sensors import SensorSuite
 from producer import VehicleProducer
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -44,25 +49,18 @@ class VehicleAgent:
 
     def update_state(self):
         """Update the underlying 'ground truth' of the vehicle."""
-        # Simple movement simulation
         acceleration = random.uniform(-1, 2)
         self.state["speed"] = max(0, min(120, self.state["speed"] + acceleration))
         
-        # RPM roughly follows speed with some base idle
         target_rpm = 800 + (self.state["speed"] * 40)
         self.state["rpm"] = max(800, min(6500, target_rpm + random.uniform(-50, 50)))
         
-        # Throttle follows speed
         self.state["throttle_position"] = max(0, min(100, (self.state["speed"] / 1.2) + random.uniform(-2, 2)))
-        
-        # Fuel drain (very slow)
         self.state["fuel_level"] = max(0, self.state["fuel_level"] - (self.state["speed"] * 0.0001))
         
-        # Coordinate movement
         self.state["latitude"] += (self.state["speed"] / 360000) * random.uniform(0.8, 1.2)
         self.state["longitude"] += (self.state["speed"] / 360000) * random.uniform(0.8, 1.2)
 
-        # Randomly trigger a degradation (for demo)
         if random.random() < 0.005:
             fault_sensor = random.choice(list(self.health.keys()))
             self.health[fault_sensor] = min(1.0, self.health[fault_sensor] + 0.2)
@@ -95,8 +93,12 @@ class VehicleAgent:
         else:
             print(json.dumps(telemetry))
 
-def run_fleet_simulation(num_vehicles=5, kafka_bootstrap=['localhost:9092']):
-    logger.info(f"Initialising simulation for {num_vehicles} vehicles...")
+def run_fleet_simulation():
+    num_vehicles = int(os.getenv('NUM_VEHICLES', 5))
+    interval = float(os.getenv('EMIT_INTERVAL_SECONDS', 1.0))
+    kafka_bootstrap = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092').split(',')
+
+    logger.info(f"Initialising simulation for {num_vehicles} vehicles with {interval}s interval...")
     
     producer = None
     try:
@@ -111,7 +113,7 @@ def run_fleet_simulation(num_vehicles=5, kafka_bootstrap=['localhost:9092']):
             for vehicle in fleet:
                 vehicle.update_state()
                 vehicle.emit_telemetry()
-            time.sleep(1)
+            time.sleep(interval)
     except KeyboardInterrupt:
         logger.info("Simulation stopping...")
     finally:
@@ -119,4 +121,4 @@ def run_fleet_simulation(num_vehicles=5, kafka_bootstrap=['localhost:9092']):
             producer.close()
 
 if __name__ == "__main__":
-    run_fleet_simulation(num_vehicles=3)
+    run_fleet_simulation()
