@@ -19,7 +19,7 @@ class ClickHouseWriter:
         self.user = os.getenv('CLICKHOUSE_USER', 'admin')
         self.password = os.getenv('CLICKHOUSE_PASSWORD', 'password')
         self.database = os.getenv('CLICKHOUSE_DATABASE', 'canflow')
-        self.table_name = 'telemetry_raw'
+        self.table_name = 'bronze_telemetry'
 
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
