@@ -96,13 +96,12 @@ class VehicleAgent:
 def run_fleet_simulation():
     num_vehicles = int(os.getenv('NUM_VEHICLES', 5))
     interval = float(os.getenv('EMIT_INTERVAL_SECONDS', 1.0))
-    kafka_bootstrap = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092').split(',')
 
     logger.info(f"Initialising simulation for {num_vehicles} vehicles with {interval}s interval...")
     
     producer = None
     try:
-        producer = VehicleProducer(bootstrap_servers=kafka_bootstrap)
+        producer = VehicleProducer()
     except Exception as e:
         logger.error(f"Could not connect to Kafka: {e}. Outputting to stdout only.")
 
