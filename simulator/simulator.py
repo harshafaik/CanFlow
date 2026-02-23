@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
-from sensors import SensorSuite
+from sensors import SensorSuite, VEHICLE_MODELS, VEHICLE_PROFILES
 from producer import VehicleProducer
 
 # Load environment variables
@@ -16,63 +16,64 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 class VehicleAgent:
-    def __init__(self, vehicle_id, producer=None):
+    def __init__(self, vehicle_id, vehicle_model, producer=None):
         self.vehicle_id = vehicle_id
+        self.vehicle_model = vehicle_model
+        self.vehicle_class = VEHICLE_MODELS.get(vehicle_model, "PASSENGER")
+        self.profile = VEHICLE_PROFILES.get(self.vehicle_class)
         self.producer = producer
-        self.sensor_suite = SensorSuite()
+        self.sensor_suite = SensorSuite(self.vehicle_class)
         
-        # Ground truth state
+        # Ground truth state based on profile
         self.state = {
-            "rpm": 800.0,
+            "rpm": self.profile['idle_rpm'],
             "speed": 0.0,
-            "coolant_temp": 88.0,
+            "coolant_temp": self.profile['avg_temp'],
             "throttle_position": 0.0,
-            "battery_voltage": 14.1,
-            "maf": 5.0,
+            "battery_voltage": self.profile['volt_baseline'],
+            "maf": 5.0 if self.vehicle_class != "EV" else 0.0,
             "fuel_level": 100.0,
-            "latitude": 37.7749 + random.uniform(-0.01, 0.01),
-            "longitude": -122.4194 + random.uniform(-0.01, 0.01)
+            "latitude": 19.0760 + random.uniform(-0.05, 0.05), # Start around Mumbai
+            "longitude": 72.8777 + random.uniform(-0.05, 0.05)
         }
         
-        # Health states for each sensor (0.0 = healthy, 1.0 = failed)
-        self.health = {
-            "rpm": 0.0,
-            "speed": 0.0,
-            "coolant_temp": 0.0,
-            "throttle_position": 0.0,
-            "battery_voltage": 0.0,
-            "maf": 0.0,
-            "fuel_level": 0.0,
-            "latitude": 0.0,
-            "longitude": 0.0
-        }
+        self.health = {k: 0.0 for k in self.state.keys()}
 
     def update_state(self):
-        """Update the underlying 'ground truth' of the vehicle."""
-        acceleration = random.uniform(-1, 2)
-        self.state["speed"] = max(0, min(120, self.state["speed"] + acceleration))
+        # Movement logic adjusted by class
+        accel_max = 3.0 if self.vehicle_class == "EV" else (1.5 if self.vehicle_class == "PASSENGER" else 0.8)
+        acceleration = random.uniform(-1.0, accel_max)
+        self.state["speed"] = max(0, min(self.profile['max_speed'], self.state["speed"] + acceleration))
         
-        target_rpm = 800 + (self.state["speed"] * 40)
-        self.state["rpm"] = max(800, min(6500, target_rpm + random.uniform(-50, 50)))
+        # RPM logic
+        if self.vehicle_class == "EV":
+            self.state["rpm"] = self.state["speed"] * 100 # Simple motor RPM
+        else:
+            target_rpm = self.profile['idle_rpm'] + (self.state["speed"] * (self.profile['max_rpm'] / self.profile['max_speed']))
+            self.state["rpm"] = max(self.profile['idle_rpm'], min(self.profile['max_rpm'], target_rpm + random.uniform(-50, 50)))
         
-        self.state["throttle_position"] = max(0, min(100, (self.state["speed"] / 1.2) + random.uniform(-2, 2)))
-        self.state["fuel_level"] = max(0, self.state["fuel_level"] - (self.state["speed"] * 0.0001))
+        self.state["throttle_position"] = max(0, min(100, (self.state["speed"] / (self.profile['max_speed']/100)) + random.uniform(-2, 2)))
         
+        # MAF (Proportional to RPM for ICE)
+        if self.vehicle_class != "EV":
+            self.state["maf"] = (self.state["rpm"] / 1000) * self.profile['maf_mult'] * 10
+            
         self.state["latitude"] += (self.state["speed"] / 360000) * random.uniform(0.8, 1.2)
         self.state["longitude"] += (self.state["speed"] / 360000) * random.uniform(0.8, 1.2)
 
-        if random.random() < 0.005:
+        if random.random() < 0.001:
             fault_sensor = random.choice(list(self.health.keys()))
             self.health[fault_sensor] = min(1.0, self.health[fault_sensor] + 0.2)
-            logger.warning(f"Vehicle {self.vehicle_id}: Fault developing in {fault_sensor}")
+            logger.warning(f"Vehicle {self.vehicle_id} ({self.vehicle_model}): Fault in {fault_sensor}")
 
     def emit_telemetry(self):
-        """Produce readings via sensor suite and send to producer."""
         readings = self.sensor_suite.get_readings(self.state, self.health)
         
         telemetry = {
             "timestamp": datetime.now().isoformat(),
             "vehicle_id": self.vehicle_id,
+            "vehicle_model": self.vehicle_model,
+            "vehicle_class": self.vehicle_class,
             "obd": {
                 "rpm": readings["rpm"],
                 "speed": readings["speed"],
@@ -97,15 +98,20 @@ def run_fleet_simulation():
     num_vehicles = int(os.getenv('NUM_VEHICLES', 5))
     interval = float(os.getenv('EMIT_INTERVAL_SECONDS', 1.0))
 
-    logger.info(f"Initialising simulation for {num_vehicles} vehicles with {interval}s interval...")
+    logger.info(f"Initialising fleet of {num_vehicles} diverse vehicles...")
     
     producer = None
     try:
         producer = VehicleProducer()
     except Exception as e:
-        logger.error(f"Could not connect to Kafka: {e}. Outputting to stdout only.")
+        logger.error(f"Producer error: {e}")
 
-    fleet = [VehicleAgent(f"VEHICLE_{i:03d}", producer=producer) for i in range(num_vehicles)]
+    # Randomly select models for the fleet (ICE only)
+    available_models = [m for m, c in VEHICLE_MODELS.items() if c != "EV"]
+    fleet = []
+    for i in range(num_vehicles):
+        model = random.choice(available_models)
+        fleet.append(VehicleAgent(f"IND-{random.randint(1000,9999)}", model, producer=producer))
     
     try:
         while True:

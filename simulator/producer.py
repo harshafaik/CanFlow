@@ -14,8 +14,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# JSON Schema matching the existing version in Confluent Cloud to avoid 409 Conflict
-# Removed the "required" arrays to maintain backward compatibility with Version 1
+# JSON Schema matching Version 3 in Confluent Cloud
 schema_str = """
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -24,6 +23,8 @@ schema_str = """
   "properties": {
     "timestamp": { "type": "string" },
     "vehicle_id": { "type": "string" },
+    "vehicle_model": { "type": "string" },
+    "vehicle_class": { "type": "string" },
     "obd": {
       "type": "object",
       "properties": {
@@ -94,6 +95,7 @@ class VehicleProducer:
                 value=self.json_serializer(reading, SerializationContext(self.topic, MessageField.VALUE)),
                 on_delivery=self.delivery_report
             )
+            # Serve delivery reports (callbacks)
             self.producer.poll(0)
         except Exception as e:
             logger.error(f"Error producing message: {e}")
@@ -108,6 +110,8 @@ if __name__ == "__main__":
     test_reading = {
         "timestamp": "2026-02-22T12:00:00Z",
         "vehicle_id": "TEST_001",
+        "vehicle_model": "Maruti Suzuki Swift",
+        "vehicle_class": "PASSENGER",
         "obd": {
             "rpm": 800.0, "speed": 0.0, "throttle_position": 0.0,
             "coolant_temp": 90.0, "battery_voltage": 14.0, "maf": 5.0, "fuel_level": 100.0
