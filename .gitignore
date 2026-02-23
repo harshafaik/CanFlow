@@ -1,5 +1,6 @@
 data/
 .env
+logs/
 __pycache__/
 simulator/__pycache__/
 site/
