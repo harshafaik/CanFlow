@@ -101,3 +101,18 @@ SELECT
 FROM canflow.bronze_telemetry;
 ```
 This syntax is explicitly recognized by the ClickHouse parser and produces the correct rolling window result.
+
+---
+
+## 6. Schema Evolution: Adding Top-Level Properties
+
+### Issue
+When attempting to add `vehicle_model` and `vehicle_class` at the top level of the JSON schema, the producer threw a `409 Conflict` error from the Schema Registry, even after updating the local schema string.
+
+### Cause
+The Schema Registry's default `BACKWARD` compatibility mode prevents adding new properties to an "open content model" (standard JSON object) because existing consumers using older schema versions wouldn't know how to handle the new fields. This is considered a breaking change.
+
+### Resolution
+1. **Manual Registry Update**: The schema was manually updated in the Confluent Cloud Console to Version 3, effectively forcing the registry to accept the new structure.
+2. **Schema Alignment**: The local `schema_str` in `simulator/producer.py` was updated to match Version 3 exactly.
+3. **Bypass Strategy**: During the transition, schema validation was temporarily bypassed using `json.dumps()` to verify data flow before restoring the strict `JSONSerializer`.
