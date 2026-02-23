@@ -74,3 +74,30 @@ In `stream/writer.py`, the `add()` method acquired a standard `threading.Lock()`
 
 ### Resolution
 The lock type was changed from `threading.Lock()` to `threading.RLock()` (Re-entrant Lock). This allows the same thread to acquire the lock multiple times, enabling `add()` to safely call `flush()` while still protecting the buffer from the background periodic flush thread.
+
+---
+
+## 5. ClickHouse Window Function Syntax (CURRENT ROW)
+
+### Issue
+When attempting to run a rolling average window function, ClickHouse threw a syntax error:
+```sql
+SELECT 
+    vehicle_id,
+    avg(coolant_temp) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 9 PRECEDING AND CURRENT ROW)
+FROM canflow.bronze_telemetry;
+```
+**Error:** `Code: 62. DB::Exception: Syntax error: failed at position 111 (and) ... Expected one of: ... token, ClosingRoundBracket, end of query.`
+
+### Cause
+While ClickHouse supports window functions, its SQL parser can be strict or behave differently regarding specific frame boundary keywords like `CURRENT ROW` in certain contexts compared to standard PostgreSQL or BigQuery dialects.
+
+### Resolution
+Use `0 FOLLOWING` as a functional equivalent to `CURRENT ROW` when defining the frame boundary:
+```sql
+SELECT 
+    vehicle_id,
+    avg(coolant_temp) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 9 PRECEDING AND 0 FOLLOWING) as rolling_avg_coolant
+FROM canflow.bronze_telemetry;
+```
+This syntax is explicitly recognized by the ClickHouse parser and produces the correct rolling window result.

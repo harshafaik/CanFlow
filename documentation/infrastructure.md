@@ -4,13 +4,13 @@ The project uses ClickHouse for storing and analyzing vehicle telemetry data.
 
 ## ClickHouse (Container)
 
-For development, a ClickHouse server is managed via `podman-compose`.
+For development, a ClickHouse server is managed via `podman-compose`. Connection details are configured in the `.env` file.
 
-- **Host Port**: 8124 (maps to container 8123)
-- **Native Port**: 9001 (maps to container 9000)
-- **User**: admin
-- **Password**: password
-- **Volume**: `./data/clickhouse` (ignored by git)
+- **Host**: `CLICKHOUSE_HOST` (default: localhost)
+- **Port**: `CLICKHOUSE_PORT` (default: 8124)
+- **User**: `CLICKHOUSE_USER` (default: admin)
+- **Password**: `CLICKHOUSE_PASSWORD`
+- **Database**: `CLICKHOUSE_DATABASE` (default: canflow)
 
 ### Management
 
