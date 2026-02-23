@@ -7,6 +7,8 @@
 WITH vehicle_metrics AS (
     SELECT
         vehicle_id,
+        any(vehicle_model) as vehicle_model,
+        any(vehicle_class) as vehicle_class,
         avg(coolant_temp) as avg_coolant_temp,
         max(coolant_temp) as max_coolant_temp,
         avg(battery_voltage) as avg_battery_voltage,
@@ -39,6 +41,8 @@ health_calculation AS (
 
 SELECT
     vehicle_id,
+    vehicle_model,
+    vehicle_class,
     avg_coolant_temp,
     max_coolant_temp,
     avg_battery_voltage,
