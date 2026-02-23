@@ -58,6 +58,8 @@ class ClickHouseWriter:
         CREATE TABLE IF NOT EXISTS {self.table_name} (
             timestamp DateTime64(3),
             vehicle_id String,
+            vehicle_model String,
+            vehicle_class String,
             rpm Float32,
             speed Float32,
             throttle_position Float32,
@@ -103,7 +105,8 @@ class ClickHouseWriter:
 
         try:
             fields = [
-                'timestamp', 'vehicle_id', 'rpm', 'speed', 'throttle_position', 
+                'timestamp', 'vehicle_id', 'vehicle_model', 'vehicle_class', 
+                'rpm', 'speed', 'throttle_position', 
                 'coolant_temp', 'battery_voltage', 'maf', 'fuel_level', 
                 'latitude', 'longitude', 'anomaly_flag', 'anomaly_reason'
             ]

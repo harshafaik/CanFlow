@@ -73,7 +73,16 @@ def detect_anomalies(data):
 
 def transform_telemetry(raw_data):
     """Orchestrate the full transformation pipeline."""
+    # Carry forward metadata
+    vehicle_model = raw_data.get('vehicle_model', 'Unknown')
+    vehicle_class = raw_data.get('vehicle_class', 'Unknown')
+    
     data = flatten_telemetry(raw_data)
     data = parse_telemetry_types(data)
     data = detect_anomalies(data)
+    
+    # Ensure they are in the final dict (flatten might have missed if they were top-level)
+    data['vehicle_model'] = vehicle_model
+    data['vehicle_class'] = vehicle_class
+    
     return data

@@ -84,6 +84,7 @@ class TelemetryConsumer:
                         msg.value(), 
                         SerializationContext(msg.topic(), MessageField.VALUE)
                     )
+                    logger.debug(f"Received message from Kafka: {raw_payload.get('vehicle_id')}")
                 except Exception as e:
                     logger.error(f"Deserialisation failure: {e}")
                     continue
