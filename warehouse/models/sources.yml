@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: canflow
+    database: canflow
+    schema: canflow # In ClickHouse, schema usually maps to database name
+    tables:
+      - name: bronze_telemetry
+        description: "Raw vehicle telemetry data ingested from Kafka"
