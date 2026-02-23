@@ -1,0 +1,38 @@
+# Fleet configuration for Indian Vehicle Models
+
+profiles:
+  PASSENGER:
+    idle_rpm: 850.0
+    max_rpm: 6500.0
+    max_speed: 180.0
+    avg_temp: 90.0
+    volt_baseline: 14.2
+    maf_mult: 0.15
+  COMMERCIAL:
+    idle_rpm: 650.0
+    max_rpm: 4000.0
+    max_speed: 100.0
+    avg_temp: 92.0
+    volt_baseline: 26.5 # 24V Systems
+    maf_mult: 0.25
+  EV:
+    idle_rpm: 0.0
+    max_rpm: 15000.0
+    max_speed: 140.0
+    avg_temp: 35.0
+    volt_baseline: 350.0 # High Voltage Traction Battery
+    maf_mult: 0.0 # No air flow
+
+models:
+  "Maruti Suzuki Swift": "PASSENGER"
+  "Hyundai i20": "PASSENGER"
+  "Tata Nexon": "PASSENGER"
+  "Honda City": "PASSENGER"
+  "Tata Ace": "COMMERCIAL"
+  "Mahindra Bolero": "COMMERCIAL"
+  "Ashok Leyland Dost": "COMMERCIAL"
+  "Force Traveller": "COMMERCIAL"
+  "Tata Nexon EV": "EV"
+  "Ola S1 Pro": "EV"
+  "Ather 450X": "EV"
+  "MG ZS EV": "EV"

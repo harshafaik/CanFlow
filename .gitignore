@@ -1,7 +1,7 @@
-.venv/
+data/
 .env
 __pycache__/
 simulator/__pycache__/
 site/
 styles/
-data/
+.venv/
