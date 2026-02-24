@@ -7,9 +7,18 @@ def load_fleet_config():
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
+def load_health_config():
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'health_config.yaml')
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
 FLEET_CONFIG = load_fleet_config()
 VEHICLE_PROFILES = FLEET_CONFIG['profiles']
 VEHICLE_MODELS = FLEET_CONFIG['models']
+
+HEALTH_CONFIG = load_health_config()
+HEALTH_PROFILES = HEALTH_CONFIG['health_profiles']
+FLEET_DISTRIBUTION = HEALTH_CONFIG.get('fleet_distribution', {})
 
 class Sensor:
     def __init__(self, name, variance, unit=""):
@@ -41,12 +50,14 @@ class RPMSensor(Sensor):
     def _apply_degradation(self, reading, degradation):
         if degradation > 0:
             if random.random() < 0.1 * degradation:
-                return reading + random.choice([-400, 600]) * degradation
+                # Spikes/Drops are now 2x more severe
+                return reading + random.choice([-800, 1200]) * degradation
         return reading
 
 class CoolantTempSensor(Sensor):
     def _apply_degradation(self, reading, degradation):
-        return reading + (25 * degradation)
+        # Overheating is now a 40C swing (e.g., 90C + 40C = 130C)
+        return reading + (40 * degradation)
 
 class ThrottleSensor(Sensor):
     def _apply_degradation(self, reading, degradation):
@@ -56,7 +67,8 @@ class ThrottleSensor(Sensor):
 
 class BatterySensor(Sensor):
     def _apply_degradation(self, reading, degradation):
-        return reading - (3.0 * degradation)
+        # Voltage drop/spike is now 6V (enough to hit 12V or 24V thresholds)
+        return reading - (6.0 * degradation * random.choice([1, -1]))
 
 class MAFSensor(Sensor):
     def _apply_degradation(self, reading, degradation):

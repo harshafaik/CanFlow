@@ -27,15 +27,37 @@ health_calculation AS (
     SELECT
         *,
         (total_anomaly_count / total_readings) as anomaly_rate,
-        -- Scoring Logic: Start at 100, penalize for bad behavior
-        -- Anomaly Rate Penalty (up to 50 points)
-        -- Max Temp Penalty (up to 25 points if > 100C)
-        -- Min Voltage Penalty (up to 25 points if < 12.5V)
-        100 
-        - ( (total_anomaly_count / total_readings) * 100 * 0.5 )
-        - ( CASE WHEN max_coolant_temp > 100 THEN (max_coolant_temp - 100) * 5 ELSE 0 END )
-        - ( CASE WHEN min_battery_voltage < 12.5 THEN (12.5 - min_battery_voltage) * 20 ELSE 0 END )
-        as raw_health_score
+        
+        -- 1. Non-linear Anomaly Penalty (up to 40 pts)
+        -- A small rate (1%) costs ~10pts, while higher rates scale up non-linearly
+        least(40, pow(total_anomaly_count / total_readings, 0.5) * 100) as anomaly_penalty,
+
+        -- 2. Continuous Thermal stress (up to 30 pts)
+        -- Penalize every degree above the ideal baseline (90C Passenger / 92C Commercial)
+        -- This ensures vehicles with high wear factors lose points even without anomalies
+        CASE 
+            WHEN vehicle_class = 'PASSENGER' THEN
+                least(30, 
+                    (CASE WHEN avg_coolant_temp > 90 THEN (avg_coolant_temp - 90) * 5 ELSE 0 END) +
+                    (CASE WHEN max_coolant_temp > 105 THEN (max_coolant_temp - 105) * 2 ELSE 0 END)
+                )
+            WHEN vehicle_class = 'COMMERCIAL' THEN
+                least(30, 
+                    (CASE WHEN avg_coolant_temp > 92 THEN (avg_coolant_temp - 92) * 5 ELSE 0 END) +
+                    (CASE WHEN max_coolant_temp > 107 THEN (max_coolant_temp - 107) * 2 ELSE 0 END)
+                )
+            ELSE 0
+        END as thermal_penalty,
+
+        -- 3. Electrical stability (up to 30 pts)
+        -- Penalize any drop from baseline (14.2V Passenger / 26.5V Commercial)
+        CASE
+            WHEN vehicle_class = 'PASSENGER' THEN
+                least(30, (CASE WHEN avg_battery_voltage < 14.2 THEN (14.2 - avg_battery_voltage) * 50 ELSE 0 END))
+            WHEN vehicle_class = 'COMMERCIAL' THEN
+                least(30, (CASE WHEN avg_battery_voltage < 26.5 THEN (26.5 - avg_battery_voltage) * 20 ELSE 0 END))
+            ELSE 0
+        END as electrical_penalty
     FROM vehicle_metrics
 )
 
@@ -54,5 +76,5 @@ SELECT
     avg_rolling_anomaly_count,
     max_coolant_temp_delta,
     total_sessions,
-    round(greatest(0, least(100, raw_health_score)), 2) as health_score
+    round(greatest(0, least(100, 100 - anomaly_penalty - thermal_penalty - electrical_penalty)), 2) as health_score
 FROM health_calculation

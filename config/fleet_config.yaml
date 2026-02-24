@@ -15,24 +15,38 @@ profiles:
     avg_temp: 92.0
     volt_baseline: 26.5 # 24V Systems
     maf_mult: 0.25
-  EV:
-    idle_rpm: 0.0
-    max_rpm: 15000.0
-    max_speed: 140.0
-    avg_temp: 35.0
-    volt_baseline: 350.0 # High Voltage Traction Battery
-    maf_mult: 0.0 # No air flow
 
 models:
+  # Maruti Suzuki
   "Maruti Suzuki Swift": "PASSENGER"
-  "Hyundai i20": "PASSENGER"
+  "Maruti Suzuki Baleno": "PASSENGER"
+  "Maruti Suzuki Dzire": "PASSENGER"
+  "Maruti Suzuki Ertiga": "PASSENGER"
+  "Maruti Suzuki Brezza": "PASSENGER"
+  # Tata Motors
   "Tata Nexon": "PASSENGER"
-  "Honda City": "PASSENGER"
+  "Tata Punch": "PASSENGER"
+  "Tata Safari": "PASSENGER"
+  "Tata Harrier": "PASSENGER"
   "Tata Ace": "COMMERCIAL"
+  "Tata Intra": "COMMERCIAL"
+  # Hyundai
+  "Hyundai i20": "PASSENGER"
+  "Hyundai Creta": "PASSENGER"
+  "Hyundai Venue": "PASSENGER"
+  "Hyundai Verna": "PASSENGER"
+  # Mahindra
+  "Mahindra XUV700": "PASSENGER"
+  "Mahindra Scorpio-N": "PASSENGER"
+  "Mahindra Thar": "PASSENGER"
   "Mahindra Bolero": "COMMERCIAL"
+  # Toyota
+  "Toyota Innova Hycross": "PASSENGER"
+  "Toyota Fortuner": "PASSENGER"
+  # Kia
+  "Kia Seltos": "PASSENGER"
+  "Kia Sonet": "PASSENGER"
+  # Commercial
   "Ashok Leyland Dost": "COMMERCIAL"
   "Force Traveller": "COMMERCIAL"
-  "Tata Nexon EV": "EV"
-  "Ola S1 Pro": "EV"
-  "Ather 450X": "EV"
-  "MG ZS EV": "EV"
+  "Eicher Pro 2049": "COMMERCIAL"

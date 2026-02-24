@@ -1,0 +1,33 @@
+health_profiles:
+  EXCELLENT:
+    fault_chance: 0.001
+    wear_range: [0.99, 1.01]
+    recovery_speed: 0.50
+    fault_severity: 0.2
+  GOOD:
+    fault_chance: 0.005
+    wear_range: [1.01, 1.03]
+    recovery_speed: 0.40
+    fault_severity: 0.4
+  FAIR:
+    fault_chance: 0.015
+    wear_range: [1.03, 1.06]
+    recovery_speed: 0.25
+    fault_severity: 0.7
+  POOR:
+    fault_chance: 0.030
+    wear_range: [1.06, 1.10]
+    recovery_speed: 0.15
+    fault_severity: 1.0
+  CRITICAL:
+    fault_chance: 0.060
+    wear_range: [1.10, 1.15]
+    recovery_speed: 0.10
+    fault_severity: 1.0
+
+fleet_distribution:
+  EXCELLENT: 30
+  GOOD: 35
+  FAIR: 20
+  POOR: 10
+  CRITICAL: 5

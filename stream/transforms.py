@@ -44,22 +44,30 @@ def detect_anomalies(data):
     # 1. RPM Anomaly: Check for extreme ranges or zero when moving
     rpm = processed.get('rpm', 0)
     speed = processed.get('speed', 0)
-    if rpm > 6000:
+    if rpm > 7000:
         reasons.append("Extreme RPM")
     elif rpm < 500 and speed > 10:
         reasons.append("Engine Stall Risk")
 
-    # 2. Overheating: Coolant temp > 105C
+    # 2. Overheating: Coolant temp > 115C (Raised from 105 to allow for fleet variance)
     coolant = processed.get('coolant_temp', 90)
-    if coolant > 105:
+    if coolant > 115:
         reasons.append("Overheating")
 
-    # 3. Electrical: Battery voltage < 12.5V (Alternator) or > 15.5V (Regulator)
+    # 3. Electrical: Battery voltage thresholds based on system type (12V vs 24V)
     voltage = processed.get('battery_voltage', 14.0)
-    if voltage < 12.5:
-        reasons.append("Low Voltage (Alternator Failure)")
-    elif voltage > 15.5:
-        reasons.append("Over-voltage (Regulator Failure)")
+    vehicle_class = processed.get('vehicle_class', 'PASSENGER')
+    
+    if vehicle_class == 'COMMERCIAL':
+        if voltage < 22.0:
+            reasons.append("Low Voltage (Alternator Failure)")
+        elif voltage > 30.0:
+            reasons.append("Over-voltage (Regulator Failure)")
+    else: # Passenger / Standard 12V
+        if voltage < 11.5:
+            reasons.append("Low Voltage (Alternator Failure)")
+        elif voltage > 16.0:
+            reasons.append("Over-voltage (Regulator Failure)")
 
     # 4. Mechanical: Speed vs Throttle vs RPM mismatch
     throttle = processed.get('throttle_position', 0)
