@@ -9,6 +9,7 @@ Welcome to the CanFlow project documentation. CanFlow is a high-fidelity vehicle
     - `sensors.py`: Individual sensor models with noise and degradation logic.
     - `producer.py`: Kafka integration for streaming telemetry.
 - `documentation/`: Project manuals and technical specs.
+    - `anomalies.md`: Detailed logic for fault injection and detection.
 
 ## Getting Started
 
