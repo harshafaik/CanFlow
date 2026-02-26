@@ -22,6 +22,8 @@ windowed_features AS (
         avg(coolant_temp) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 9 PRECEDING AND 0 FOLLOWING) as rolling_avg_coolant_temp,
         avg(rpm) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 9 PRECEDING AND 0 FOLLOWING) as rolling_avg_rpm,
         avg(battery_voltage) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 9 PRECEDING AND 0 FOLLOWING) as rolling_avg_battery_voltage,
+        avg(maf) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 9 PRECEDING AND 0 FOLLOWING) as rolling_avg_maf,
+        avg(throttle_position) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 9 PRECEDING AND 0 FOLLOWING) as rolling_avg_throttle_position,
         
         -- Anomaly context: last 20 readings
         sum(anomaly_flag) OVER (PARTITION BY vehicle_id ORDER BY timestamp ROWS BETWEEN 19 PRECEDING AND 0 FOLLOWING) as rolling_anomaly_count,

@@ -35,6 +35,9 @@ class PersistentVehicle:
         self.profile = VEHICLE_PROFILES[self.vehicle_class]
         self.sensor_suite = SensorSuite(self.vehicle_class)
         self.condition = condition
+        
+        # Environmental Context (Not in schema, so it's a latent factor)
+        self.ambient_temp = random.uniform(25.0, 45.0)
 
         h_profile = HEALTH_PROFILES[condition]
         self.fault_chance = h_profile["fault_chance"]
@@ -54,6 +57,7 @@ class PersistentVehicle:
             "longitude": 72.8777 + random.uniform(-0.1, 0.1),
         }
         self.health = {k: 0.0 for k in self.state.keys()}
+        self.latent_health = {k: 0.0 for k in self.state.keys()}
 
     def update(self):
         accel_max = 1.5 if self.vehicle_class == "PASSENGER" else 0.8
@@ -78,11 +82,23 @@ class PersistentVehicle:
                 + random.uniform(-2, 2),
             ),
         )
+
+        # 1. MAF Correlation
+        load_factor = (self.state["rpm"] / self.profile["max_rpm"]) * (
+            0.5 + (self.state["throttle_position"] / 200)
+        )
         self.state["maf"] = (
-            (self.state["rpm"] / 1000)
-            * self.profile["maf_mult"]
-            * 10
-            * self.wear_factor
+            load_factor * self.profile["maf_mult"] * 100 * self.wear_factor
+        )
+
+        # 2. Thermal Correlation
+        load = self.state["rpm"] / self.profile["max_rpm"]
+        temp_target = self.ambient_temp + self.profile["avg_temp"] - 35 + (load * 20)
+        self.state["coolant_temp"] += (temp_target - self.state["coolant_temp"]) * 0.05
+
+        # 3. Electrical Correlation
+        self.state["battery_voltage"] = (
+            self.profile["volt_baseline"] + (load * 0.4) - 0.2
         )
 
         self.state["latitude"] += (self.state["speed"] / 360000) * random.uniform(
@@ -91,8 +107,10 @@ class PersistentVehicle:
         self.state["longitude"] += (self.state["speed"] / 360000) * random.uniform(
             0.8, 1.2
         )
+
+        drain_rate = 0.00005 * (1 + load)
         self.state["fuel_level"] = max(
-            0, self.state["fuel_level"] - (self.state["speed"] * 0.00005)
+            0, self.state["fuel_level"] - (self.state["speed"] * drain_rate)
         )
 
         # Fault injection severity scales with condition
@@ -100,34 +118,31 @@ class PersistentVehicle:
             fault_sensor = random.choice(list(self.health.keys()))
             self.health[fault_sensor] = self.fault_severity
 
+        # Latent fault injection (Higher frequency, lower severity)
+        if random.random() < self.fault_chance * 5:
+            fault_sensor = random.choice(list(self.latent_health.keys()))
+            self.latent_health[fault_sensor] = self.fault_severity / 2
+
         # Recovery speed depends on vehicle condition
         for sensor in self.health:
             if self.health[sensor] > 0:
                 self.health[sensor] = max(
                     0.0, self.health[sensor] - self.recovery_speed
                 )
+            if self.latent_health[sensor] > 0:
+                self.latent_health[sensor] = max(
+                    0.0, self.latent_health[sensor] - self.recovery_speed / 2
+                )
 
     def get_row(self, timestamp):
-        readings = self.sensor_suite.get_readings(self.state, self.health)
-        raw_payload = {
-            "timestamp": timestamp.isoformat(),
-            "vehicle_id": self.vehicle_id,
-            "vehicle_model": self.vehicle_model,
-            "vehicle_class": self.vehicle_class,
-            "obd": {
-                "rpm": readings["rpm"],
-                "speed": readings["speed"],
-                "throttle_position": readings["throttle_position"],
-                "coolant_temp": readings["coolant_temp"],
-                "battery_voltage": readings["battery_voltage"],
-                "maf": readings["maf"],
-                "fuel_level": readings["fuel_level"],
-            },
-            "gps": {
-                "latitude": readings["latitude"],
-                "longitude": readings["longitude"],
-            },
-        }
+        raw_payload = self.sensor_suite.format_telemetry(
+            self.vehicle_id,
+            self.vehicle_model,
+            self.state,
+            self.health,
+            timestamp=timestamp,
+            latent_health=self.latent_health
+        )
         return transform_telemetry(raw_payload)
 
 

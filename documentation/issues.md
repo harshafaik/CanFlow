@@ -116,3 +116,18 @@ The Schema Registry's default `BACKWARD` compatibility mode prevents adding new 
 1. **Manual Registry Update**: The schema was manually updated in the Confluent Cloud Console to Version 3, effectively forcing the registry to accept the new structure.
 2. **Schema Alignment**: The local `schema_str` in `simulator/producer.py` was updated to match Version 3 exactly.
 3. **Bypass Strategy**: During the transition, schema validation was temporarily bypassed using `json.dumps()` to verify data flow before restoring the strict `JSONSerializer`.
+
+---
+
+## 7. "Impossible" AUC-ROC Score (0.9998) due to Label Leakage
+
+### Issue
+Retraining the XGBoost model on the newly generated gold layer data resulted in an AUC-ROC score of 0.9998. While mathematically impressive, this is unrealistically high for a predictive maintenance task and indicates a failure in the machine learning design.
+
+### Cause
+**Label Leakage**: The target variable (`is_at_risk`) was derived directly from the `health_score` calculated in the Gold layer SQL. The features used for training (`avg_coolant_temp`, `avg_battery_voltage`, etc.) were the exact same variables used in the SQL logic to determine that health score. XGBoost effectively reverse-engineered the SQL thresholds (e.g., "if temp > 108 then health drops") rather than learning latent mechanical risk patterns.
+
+### Resolution
+1. **Break the direct link**: Remove the "cheating" features (simple averages used in SQL) from the training set.
+2. **Introduce Environmental Noise**: Add variables like `ambient_temperature` to the simulator. This forces the model to distinguish between weather-related heat (normal) and engine-related heat (anomalous) without knowing the weather state.
+3. **Shift to Complex Signals**: Use features that require interpretation, such as rate-of-change (`max_coolant_temp_delta`) and efficiency ratios (`maf / rpm`), which are correlated with health but not directly used in the linear scoring formula.

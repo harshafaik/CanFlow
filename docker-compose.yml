@@ -20,3 +20,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PLUGINS_PREINSTALL=grafana-clickhouse-datasource
+    volumes:
+      - ./dashboard/grafana/provisioning:/etc/grafana/provisioning:Z
+      - grafana-storage:/var/lib/grafana:Z
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+volumes:
+  grafana-storage:

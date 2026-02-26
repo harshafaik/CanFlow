@@ -35,29 +35,32 @@ def parse_telemetry_types(data):
 
 def detect_anomalies(data):
     """
-    Flag anomalies based on automotive threshold rules.
+    Flag anomalies based on automotive threshold rules and cross-sensor correlations.
     Returns the data with an 'anomaly_flag' (Int) and 'anomaly_reason' (String).
     """
     processed = data.copy()
     reasons = []
-
-    # 1. RPM Anomaly: Check for extreme ranges or zero when moving
+    
+    vehicle_class = processed.get('vehicle_class', 'PASSENGER')
     rpm = processed.get('rpm', 0)
     speed = processed.get('speed', 0)
-    if rpm > 7000:
+    voltage = processed.get('battery_voltage', 14.0)
+    coolant = processed.get('coolant_temp', 90)
+    throttle = processed.get('throttle_position', 0)
+    maf = processed.get('maf', 0)
+
+    # 1. RPM Anomaly: Context-aware limits (Commercial vs Passenger)
+    rpm_limit = 6500 if vehicle_class == 'PASSENGER' else 4200
+    if rpm > rpm_limit:
         reasons.append("Extreme RPM")
     elif rpm < 500 and speed > 10:
         reasons.append("Engine Stall Risk")
 
-    # 2. Overheating: Coolant temp > 115C (Raised from 105 to allow for fleet variance)
-    coolant = processed.get('coolant_temp', 90)
+    # 2. Overheating: Coolant temp > 115C
     if coolant > 115:
         reasons.append("Overheating")
 
-    # 3. Electrical: Battery voltage thresholds based on system type (12V vs 24V)
-    voltage = processed.get('battery_voltage', 14.0)
-    vehicle_class = processed.get('vehicle_class', 'PASSENGER')
-    
+    # 3. Electrical: Context-aware battery voltage thresholds
     if vehicle_class == 'COMMERCIAL':
         if voltage < 22.0:
             reasons.append("Low Voltage (Alternator Failure)")
@@ -69,10 +72,15 @@ def detect_anomalies(data):
         elif voltage > 16.0:
             reasons.append("Over-voltage (Regulator Failure)")
 
-    # 4. Mechanical: Speed vs Throttle vs RPM mismatch
-    throttle = processed.get('throttle_position', 0)
-    if throttle > 90 and speed < 5 and rpm > 3000:
-        reasons.append("Transmission Slip / Stuck")
+    # 4. Correlation Rule: MAF vs RPM (Plausibility)
+    # If engine is spinning fast (>2500) but air flow is near zero, MAF is failing
+    if rpm > 2500 and maf < 2.0:
+        reasons.append("MAF Sensor Failure / Implausibility")
+
+    # 5. Mechanical: Speed vs Throttle vs RPM mismatch (Transmission Slip)
+    # Lowered throttle to 75% to catch the "Stuck Throttle" failure mode (>0.6 degradation)
+    if throttle > 75 and speed < 5 and rpm > 2500:
+        reasons.append("Transmission Slip / Stuck Throttle")
 
     processed['anomaly_flag'] = 1 if reasons else 0
     processed['anomaly_reason'] = "; ".join(reasons) if reasons else "Normal"

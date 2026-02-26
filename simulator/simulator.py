@@ -25,6 +25,9 @@ class VehicleAgent:
         self.sensor_suite = SensorSuite(self.vehicle_class)
         self.condition = condition
         
+        # Environmental noise (Dynamic per vehicle/location)
+        self.ambient_temp = random.uniform(25.0, 45.0) # 25C to 45C (Indian context)
+
         h_profile = HEALTH_PROFILES[condition]
         self.fault_chance = h_profile['fault_chance']
         self.wear_factor = random.uniform(*h_profile['wear_range'])
@@ -45,6 +48,7 @@ class VehicleAgent:
         }
         
         self.health = {k: 0.0 for k in self.state.keys()}
+        self.latent_health = {k: 0.0 for k in self.state.keys()}
 
     def update_state(self):
         # Movement logic adjusted by class
@@ -57,18 +61,31 @@ class VehicleAgent:
                      (self.state["speed"] * (self.profile['max_rpm'] / self.profile['max_speed']))
         self.state["rpm"] = max(self.profile['idle_rpm'] * 0.8, min(self.profile['max_rpm'], target_rpm + random.uniform(-50, 50)))
         
-        # Throttle
+        # Throttle is proportional to acceleration/speed maintenance
         self.state["throttle_position"] = max(0, min(100, (self.state["speed"] / (self.profile['max_speed']/100)) + random.uniform(-2, 2)))
         
-        # MAF (Proportional to RPM and Wear)
-        self.state["maf"] = (self.state["rpm"] / 1000) * self.profile['maf_mult'] * 10 * self.wear_factor
+        # 1. MAF Correlation: Depends on RPM and Throttle (Engine Load)
+        # More air is sucked in when throttle is open and RPM is high
+        load_factor = (self.state["rpm"] / self.profile['max_rpm']) * (0.5 + (self.state["throttle_position"] / 200))
+        self.state["maf"] = load_factor * self.profile['maf_mult'] * 100 * self.wear_factor
             
+        # 2. Thermal Correlation: High Load + Ambient increases Temperature
+        load = (self.state["rpm"] / self.profile['max_rpm'])
+        # Target temp is ambient offset + (load * scale). A hot day makes a car run hotter normally.
+        temp_target = self.ambient_temp + self.profile['avg_temp'] - 35 + (load * 20)
+        self.state["coolant_temp"] += (temp_target - self.state["coolant_temp"]) * 0.05
+        
+        # 3. Electrical Correlation: RPM affects Alternator Output
+        # Battery voltage is slightly higher at higher RPMs (charging)
+        self.state["battery_voltage"] = self.profile['volt_baseline'] + (load * 0.4) - 0.2
+
         # Movement
         self.state["latitude"] += (self.state["speed"] / 360000) * random.uniform(0.8, 1.2)
         self.state["longitude"] += (self.state["speed"] / 360000) * random.uniform(0.8, 1.2)
         
-        # Fuel drain
-        self.state["fuel_level"] = max(0, self.state["fuel_level"] - (self.state["speed"] * 0.00005))
+        # Fuel drain (higher under high load)
+        drain_rate = 0.00005 * (1 + load)
+        self.state["fuel_level"] = max(0, self.state["fuel_level"] - (self.state["speed"] * drain_rate))
 
         # Fault injection (Tiered based on condition)
         if random.random() < self.fault_chance:
@@ -76,33 +93,28 @@ class VehicleAgent:
             self.health[fault_sensor] = self.fault_severity
             logger.warning(f"Vehicle {self.vehicle_id} ({self.vehicle_model}): Developing fault in {fault_sensor}")
 
+        # Latent pre-failure ramping
+        # This occurs more frequently than hard faults to create "smells"
+        if random.random() < self.fault_chance * 5:
+            fault_sensor = random.choice(list(self.latent_health.keys()))
+            self.latent_health[fault_sensor] = self.fault_severity / 2
+            logger.info(f"Vehicle {self.vehicle_id}: Sensing latent instability in {fault_sensor}")
+
         # Recovery speed depends on vehicle condition
         for sensor in self.health:
             if self.health[sensor] > 0:
                 self.health[sensor] = max(0.0, self.health[sensor] - self.recovery_speed)
+            if self.latent_health[sensor] > 0:
+                self.latent_health[sensor] = max(0.0, self.latent_health[sensor] - self.recovery_speed / 2)
 
     def emit_telemetry(self):
-        readings = self.sensor_suite.get_readings(self.state, self.health)
-        
-        telemetry = {
-            "timestamp": datetime.now().isoformat(),
-            "vehicle_id": self.vehicle_id,
-            "vehicle_model": self.vehicle_model,
-            "vehicle_class": self.vehicle_class,
-            "obd": {
-                "rpm": readings["rpm"],
-                "speed": readings["speed"],
-                "throttle_position": readings["throttle_position"],
-                "coolant_temp": readings["coolant_temp"],
-                "battery_voltage": readings["battery_voltage"],
-                "maf": readings["maf"],
-                "fuel_level": readings["fuel_level"]
-            },
-            "gps": {
-                "latitude": readings["latitude"],
-                "longitude": readings["longitude"]
-            }
-        }
+        telemetry = self.sensor_suite.format_telemetry(
+            self.vehicle_id, 
+            self.vehicle_model, 
+            self.state, 
+            self.health,
+            latent_health=self.latent_health
+        )
         
         if self.producer:
             self.producer.send_reading(telemetry)
