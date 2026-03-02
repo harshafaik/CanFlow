@@ -7,6 +7,8 @@ datasources:
     url: http://clickhouse:8123
     jsonData:
       protocol: http
+      server: clickhouse
+      port: 8123
       defaultDatabase: canflow
       username: admin
       tlsSkipVerify: true

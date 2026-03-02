@@ -1,0 +1,122 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Total Vehicles",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        { "queryType": "randomWalk", "rawSql": "SELECT count(DISTINCT vehicle_id) FROM canflow.gold_vehicle_health" }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "title": "Overall Anomaly Rate (Live)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        { "rawSql": "SELECT avg(anomaly_flag) * 100 FROM canflow.silver_telemetry WHERE timestamp > now() - interval 5 minute" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "At-Risk Vehicle Count",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        { "rawSql": "SELECT count(*) FROM canflow.gold_vehicle_predictions WHERE risk_label = 1" }
+      ],
+      "options": { "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Fleet Health Distribution",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        { "rawSql": "SELECT CASE WHEN health_score >= 90 THEN 'Excellent' WHEN health_score >= 75 THEN 'Good' WHEN health_score >= 50 THEN 'Fair' ELSE 'Poor' END as health_grade, count(*) as count FROM canflow.gold_vehicle_health GROUP BY health_grade ORDER BY count DESC" }
+      ]
+    },
+    {
+      "title": "Risk Label Distribution",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        { "rawSql": "SELECT CASE WHEN risk_label = 1 THEN 'At-Risk' ELSE 'Healthy' END as label, count(*) as count FROM canflow.gold_vehicle_predictions GROUP BY label" }
+      ],
+      "options": { "legend": { "displayMode": "list" }, "pieType": "donut" }
+    },
+    {
+      "title": "Live Anomaly Time Series",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "targets": [
+        { "rawSql": "SELECT toStartOfInterval(timestamp, INTERVAL 10 second) as time, sum(anomaly_flag) as anomalies FROM canflow.silver_telemetry WHERE timestamp > now() - interval 1 hour GROUP BY time ORDER BY time" }
+      ]
+    },
+    {
+      "title": "Worst Performing Vehicles",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "targets": [
+        { "rawSql": "SELECT h.vehicle_id, h.vehicle_model, h.vehicle_class, h.health_score, h.anomaly_rate, p.risk_probability FROM canflow.gold_vehicle_health h LEFT JOIN canflow.gold_vehicle_predictions p ON h.vehicle_id = p.vehicle_id ORDER BY health_score ASC LIMIT 20" }
+      ],
+      "fieldConfig": {
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "health_score" }, "properties": [{ "id": "custom.displayMode", "value": "color-background" }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 50 }, { "color": "green", "value": 80 }] } }] }
+        ]
+      }
+    },
+    {
+      "title": "Average Health Score by Model",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "targets": [
+        { "rawSql": "SELECT vehicle_model, avg(health_score) as avg_health FROM canflow.gold_vehicle_health GROUP BY vehicle_model ORDER BY avg_health ASC" }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["canflow", "fleet"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "CanFlow Fleet Intelligence",
+  "uid": "canflow_fleet_intel",
+  "version": 1
+}

@@ -20,7 +20,7 @@ HEALTH_CONFIG = load_health_config()
 HEALTH_PROFILES = HEALTH_CONFIG['health_profiles']
 FLEET_DISTRIBUTION = HEALTH_CONFIG.get('fleet_distribution', {})
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Sensor:
     def __init__(self, name, variance, min_val=None, max_val=None, unit=""):
@@ -143,7 +143,7 @@ class SensorSuite:
         """Standardises the telemetry structure according to the producer schema"""
         readings = self.get_readings(state, health, latent_health=latent_health)
         return {
-            "timestamp": timestamp or datetime.now().isoformat(),
+            "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
             "vehicle_id": vehicle_id,
             "vehicle_model": model,
             "vehicle_class": self.vehicle_class,

@@ -131,3 +131,42 @@ Retraining the XGBoost model on the newly generated gold layer data resulted in 
 1. **Break the direct link**: Remove the "cheating" features (simple averages used in SQL) from the training set.
 2. **Introduce Environmental Noise**: Add variables like `ambient_temperature` to the simulator. This forces the model to distinguish between weather-related heat (normal) and engine-related heat (anomalous) without knowing the weather state.
 3. **Shift to Complex Signals**: Use features that require interpretation, such as rate-of-change (`max_coolant_temp_delta`) and efficiency ratios (`maf / rpm`), which are correlated with health but not directly used in the linear scoring formula.
+
+---
+
+## 8. Dashboard Time-Drift (UTC vs. Local Time)
+
+### Issue
+After setting up the Grafana dashboard, all "Last 1 hour" panels appeared empty even though the simulator and consumer were running and ClickHouse contained millions of rows.
+
+### Cause
+**Timestamp Mismatch**: The simulator was originally using `datetime.now().isoformat()`, which generated local system time (e.g., IST). ClickHouse and Grafana, however, default to UTC for `DateTime` fields. This created a 5.5-hour gap, making today's live data appear to Grafana as being 5.5 hours in the future (and thus filtered out of the "Last 1 hour" view).
+
+### Resolution
+The simulator's `format_telemetry` method was updated to use explicit UTC timestamps:
+```python
+from datetime import datetime, timezone
+# ...
+"timestamp": timestamp or datetime.now(timezone.utc).isoformat()
+```
+This ensures that every telemetry packet is tagged with a globally consistent UTC time, matching the internal clocks of ClickHouse and Grafana.
+
+---
+
+## 9. Grafana ClickHouse DataSource: "Invalid Server Host"
+
+### Issue
+Grafana failed to connect to ClickHouse with a 400 error: `invalid server host. Either empty or not set`.
+
+### Cause
+While the `url` field was provided in the provisioning YAML (e.g., `http://clickhouse:8123`), the `grafana-clickhouse-datasource` plugin requires the `server` and `port` fields to be explicitly defined within the `jsonData` block of the provisioning configuration to correctly initialize its internal client.
+
+### Resolution
+The `dashboard/grafana/provisioning/datasources/clickhouse.yml` was updated to include both the top-level URL and the explicit `jsonData` fields:
+```yaml
+jsonData:
+  server: clickhouse
+  port: 8123
+  protocol: http
+```
+This allowed the plugin to correctly resolve the ClickHouse service within the Podman container network.
