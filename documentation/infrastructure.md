@@ -4,7 +4,7 @@ The project uses ClickHouse for storing and analyzing vehicle telemetry data.
 
 ## ClickHouse (Container)
 
-For development, a ClickHouse server is managed via `podman-compose`. Connection details are configured in the `.env` file.
+For development, a ClickHouse server is managed via `docker-compose`. Connection details are configured in the `.env` file.
 
 - **Host**: `CLICKHOUSE_HOST` (default: localhost)
 - **Port**: `CLICKHOUSE_PORT` (default: 8124)
@@ -16,12 +16,12 @@ For development, a ClickHouse server is managed via `podman-compose`. Connection
 
 Start the service:
 ```bash
-podman-compose up -d
+docker-compose up -d
 ```
 
 Stop the service:
 ```bash
-podman-compose down
+docker-compose down
 ```
 
 ## Existing Services

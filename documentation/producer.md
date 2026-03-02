@@ -4,7 +4,7 @@ The `simulator/producer.py` module handles the communication between the simulat
 
 ## VehicleProducer
 
-The `VehicleProducer` class uses `kafka-python` to send serialized vehicle telemetry JSON objects to a specific topic.
+The `VehicleProducer` class uses `confluent-kafka` with Schema Registry support to send serialized vehicle telemetry JSON objects to a specific topic.
 
 ## Configuration
 

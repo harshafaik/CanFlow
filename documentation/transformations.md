@@ -27,15 +27,16 @@ CanFlow uses **dbt (data build tool)** to transform raw telemetry in ClickHouse 
 
 ## Health Score Formula
 
-The `health_score` is a weighted calculation designed to prioritize immediate vehicle safety:
+The `health_score` is a weighted, non-linear calculation (0-100) designed to prioritize immediate vehicle safety while ignoring normal high-load operating fluctuations:
 
 $$
-	ext{Score} = 100 - (	ext{Anomaly Penalty}) - (	ext{Temp Penalty}) - (	ext{Voltage Penalty})
+\text{Score} = 100 - (\text{Anomaly Penalty}) - (\text{Thermal Penalty}) - (\text{Electrical Penalty}) - (\text{Mechanical Penalty})
 $$
 
-- **Anomaly Penalty**: Up to 50 points based on the frequency of raw sensor flags.
-- **Temp Penalty**: 5 points for every degree above 100°C.
-- **Voltage Penalty**: 20 points for every volt below 12.5V (alternator failure indicator).
+- **Anomaly Penalty (Max 40 pts)**: Non-linear penalty that scales with the frequency of raw sensor flags. Uses `pow(rate, 1.2)` to be forgiving of isolated noise while penalizing persistent failures.
+- **Thermal Penalty (Max 25 pts)**: Context-aware thresholds (Passenger: 108°C, Commercial: 110°C). Penalties scale exponentially using `pow(delta, 1.8)` once the "dead zone" is breached.
+- **Electrical Penalty (Max 20 pts)**: Penalizes low voltage (Alternator failure) with slack for natural idle-load drops (Passenger: 13.2V, Commercial: 25.5V).
+- **Mechanical Penalty (Max 15 pts)**: Detects extreme internal wear by monitoring efficiency outliers (`MAF / RPM` ratio).
 
 ## Running Transformations
 
